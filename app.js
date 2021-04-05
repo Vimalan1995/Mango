@@ -39,7 +39,8 @@ const userSchema = new mongoose.Schema({
   email: String,
   password: String,
   googleId: String, //need this so your databas can locate it and you wont be recreating each time to register or login.
-  facebookId: String // same shit as google
+  facebookId: String, // same shit as google
+  secret: String // user secret
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -73,7 +74,8 @@ passport.use(new GoogleStrategy({
     clientID: process.env.CLIENT_ID,
     clientSecret: process.env.CLIENT_SECRET,
     callbackURL: "http://localhost:3000/auth/google/secrets",
-    userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo"
+    userProfileURL: "https://www.googleapis.com/oauth2/v3/userinfo",
+
   },
   function(accessToken, refreshToken, profile, cb) {
     User.findOrCreate({ googleId: profile.id }, function (err, user) {
@@ -121,11 +123,20 @@ app.get("/register",function(req,res){
 });
 
 app.get("/secrets", function(req,res){
-  if(req.isAuthenticated()){
-    res.render("secrets");
-  } else {
-    res.redirect("/login");
-  }
+  // if(req.isAuthenticated()){
+  //   res.render("secrets");
+  // } else {
+  //   res.redirect("/login");
+  // }
+  User.find({"secret":{$ne:null}},function(err,foundUsers){
+    if(err){
+      console.log(err);
+    } else {
+      if(foundUsers){
+        res.render("secrets", {userWithSecrets:foundUsers});
+      }
+    }
+  });//check users and find ones with secret
 });
 
 app.get("/logout", function(req,res){
@@ -144,13 +155,34 @@ app.post("/register",function(req,res){
         });
     }
   });
-
-
 });
 
 
 app.get("/submit",function(req,res){
-  res.render("submit");
+  if(req.isAuthenticated()){
+    res.render("submit");
+  } else {
+    res.redirect("/login");
+  }
+});
+
+app.post("/submit",function(req,res){ // passport will figure out which user entered the secret
+  const submittedSecret = req.body.secret; //grabs user secret that user inputted.
+  const userId = req.user.id;
+  User.findById(req.user.id, function(err,foundUser){ // find userID who enter secret
+    if(err){
+      console.log(err);
+    } else {
+      if(foundUser) { // if user is found
+        foundUser.secret = submittedSecret; // submitted secret will be initialized to founduser DB
+        foundUser.save(function(){ // save it to DB
+          res.redirect("/secrets");
+        });
+      }
+    }
+  });
+
+
 });
 
 
