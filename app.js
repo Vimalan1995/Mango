@@ -8,7 +8,9 @@ const session = require("express-session"); //required for passport use to save 
 const passport = require("passport");  //use for authentication
 const passportLocalMongoose = require("passport-local-mongoose"); //middleware
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const FacebookStrategy = require('passport-facebook').Strategy;
 const findOrCreate = require('mongoose-findorcreate');
+//add facebook authenication
 
 
 
@@ -36,7 +38,8 @@ mongoose.set("useCreateIndex", true); // needed to remove deprecated warnings
 const userSchema = new mongoose.Schema({
   email: String,
   password: String,
-  googleId: String //need this so your databas can locate it and you wont be recreating each time to register or login.
+  googleId: String, //need this so your databas can locate it and you wont be recreating each time to register or login.
+  facebookId: String // same shit as google
 });
 
 userSchema.plugin(passportLocalMongoose);
@@ -53,6 +56,18 @@ passport.deserializeUser(function(id,done){
     done(err,user);
   });
 });
+
+passport.use(new FacebookStrategy({
+    clientID: process.env.FB_APP_ID,
+    clientSecret: process.env.FB_APP_SECRET,
+    callbackURL: "http://localhost:3000/auth/facebook/callback"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    User.findOrCreate({ facebookId: profile.id }, function (err, user) {
+      return cb(err, user);
+    });
+  }
+));
 
 passport.use(new GoogleStrategy({
     clientID: process.env.CLIENT_ID,
@@ -76,6 +91,16 @@ app.get("/auth/google", passport.authenticate('google', { scope: ['profile']})
 
 app.get('/auth/google/secrets',
   passport.authenticate('google', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/secrets');
+  });
+
+  app.get('/auth/facebook',
+  passport.authenticate('facebook'));
+
+app.get('/auth/facebook/callback',
+  passport.authenticate('facebook', { failureRedirect: '/login' }),
   function(req, res) {
     // Successful authentication, redirect home.
     res.redirect('/secrets');
