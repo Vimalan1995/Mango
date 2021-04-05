@@ -35,7 +35,8 @@ mongoose.set("useCreateIndex", true); // needed to remove deprecated warnings
 
 const userSchema = new mongoose.Schema({
   email: String,
-  password: String
+  password: String,
+  googleId: String //need this so your databas can locate it and you wont be recreating each time to register or login.
 });
 
 userSchema.plugin(passportLocalMongoose);
